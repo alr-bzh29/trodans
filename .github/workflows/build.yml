@@ -31,12 +31,19 @@ jobs:
           python3 tool/patch_android.py
 
       - name: Dépendances
-        run: flutter pub get
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/ci-logs"
+          flutter pub get 2>&1 | tee "$RUNNER_TEMP/ci-logs/pub.txt"
+          flutter pub deps --style=compact > "$RUNNER_TEMP/ci-logs/deps.txt" 2>&1 || true
+          flutter --version > "$RUNNER_TEMP/ci-logs/flutter-version.txt" 2>&1
 
       - name: Analyse du code
-        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+        shell: bash
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee "$RUNNER_TEMP/ci-logs/analyze.txt"
 
       - name: Compilation de l'APK
+        shell: bash
         run: |
           VERSION="0.1.${{ github.run_number }}"
           BUILD_DATE="$(TZ=Europe/Paris date '+%d/%m/%Y %H:%M')"
@@ -44,7 +51,7 @@ jobs:
           flutter build apk --release \
             --build-name="$VERSION" --build-number="${{ github.run_number }}" \
             --dart-define=APP_VERSION="$VERSION" \
-            --dart-define=BUILD_DATE="$BUILD_DATE"
+            --dart-define=BUILD_DATE="$BUILD_DATE" 2>&1 | tee "$RUNNER_TEMP/ci-logs/build.txt"
 
       - name: Signature
         env:
@@ -74,3 +81,21 @@ jobs:
           body: Version de test compilée automatiquement depuis ${{ github.sha }}.
           prerelease: true
           files: ${{ env.APK }}
+
+      # Journaux recopiés dans la branche « ci-logs » pour pouvoir les lire
+      # sans accès aux journaux GitHub Actions.
+      - name: Journaux
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/ci-logs"
+          echo "run ${{ github.run_number }} ${{ github.sha }} ${{ job.status }}" > "$RUNNER_TEMP/ci-logs/run.txt"
+          git config user.name "ci"
+          git config user.email "ci@users.noreply.github.com"
+          git checkout -q --orphan ci-logs-tmp
+          git rm -rfq . > /dev/null
+          rm -rf ./* 2>/dev/null || true
+          cp "$RUNNER_TEMP"/ci-logs/* .
+          git add -A
+          git commit -qm "Journaux du run ${{ github.run_number }}"
+          git push -qf origin HEAD:ci-logs

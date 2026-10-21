@@ -30,7 +30,7 @@ class Progression extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Slider(
-              value: pos.inMilliseconds.toDouble().clamp(0, max),
+              value: pos.inMilliseconds.toDouble().clamp(0.0, max),
               max: max,
               onChanged: l.chemin == null
                   ? null

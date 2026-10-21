@@ -28,6 +28,7 @@ jobs:
         run: |
           flutter --version
           flutter create --platforms=android --org bzh.alr --project-name trodans .
+          rm -rf test   # test d'exemple généré, inutile ici
           python3 tool/patch_android.py
 
       - name: Dépendances

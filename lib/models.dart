@@ -189,7 +189,7 @@ class Cours {
   }
 }
 
-/// Note personnelle sur une danse (fichier danses/<nom>.json).
+/// Note personnelle sur une danse (fichier `danses/<nom>.json`).
 class Danse {
   final String nom;
   String note;

@@ -53,6 +53,16 @@ if "MANAGE_EXTERNAL_STORAGE" not in text:
         </receiver>
     </application>"""
     text = text.replace("</application>", services, 1)
+    # Android 11+ : déclarer qu'on ouvre des liens web (url_launcher).
+    lien_web = """
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>"""
+    if "<queries>" in text:
+        text = text.replace("<queries>", "<queries>" + lien_web, 1)
+    else:
+        text = text.replace("</manifest>", "    <queries>" + lien_web + "\n    </queries>\n</manifest>", 1)
     manifest.write_text(text, encoding="utf-8")
     print("AndroidManifest.xml adapté")
 

@@ -4,6 +4,7 @@ import '../storage.dart';
 import '../util.dart';
 import '../widgets.dart';
 import 'a_propos.dart';
+import 'aide_synchro.dart';
 
 class ReglagesEcran extends StatefulWidget {
   const ReglagesEcran({super.key});
@@ -126,6 +127,19 @@ class _ReglagesEcranState extends State<ReglagesEcran> {
               style: TextStyle(color: Theme.of(context).hintColor),
             ),
             const SizedBox(height: 32),
+            ListTile(
+              shape: RoundedRectangleBorder(
+                side: BorderSide(color: Theme.of(context).dividerColor),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              leading: const Icon(Icons.sync),
+              title: const Text('Synchroniser avec le PC'),
+              subtitle: const Text('Aide pour installer Syncthing'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(
+                  context, MaterialPageRoute(builder: (_) => const AideSynchroEcran())),
+            ),
+            const SizedBox(height: 12),
             ListTile(
               shape: RoundedRectangleBorder(
                 side: BorderSide(color: Theme.of(context).dividerColor),

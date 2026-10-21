@@ -56,6 +56,20 @@ if "MANAGE_EXTERNAL_STORAGE" not in text:
     manifest.write_text(text, encoding="utf-8")
     print("AndroidManifest.xml adapté")
 
+# permission_handler_android 14.x exige de compiler contre Android 37.
+# (compileSdk n'a pas d'effet sur les versions d'Android supportées : c'est minSdk.)
+gradle = root / "android/app/build.gradle.kts"
+g = gradle.read_text(encoding="utf-8")
+g2, n = re.subn(r"compileSdk\s*=\s*flutter\.compileSdkVersion", "compileSdk = 37", g)
+if n == 0 and "compileSdk = 37" not in g:
+    sys.exit("compileSdk introuvable dans build.gradle.kts")
+gradle.write_text(g2, encoding="utf-8")
+props = root / "android/gradle.properties"
+p = props.read_text(encoding="utf-8") if props.exists() else ""
+if "suppressUnsupportedCompileSdk" not in p:
+    props.write_text(p.rstrip("\n") + "\nandroid.suppressUnsupportedCompileSdk=37\n", encoding="utf-8")
+print("compileSdk = 37")
+
 activities = list((root / "android/app/src/main").rglob("MainActivity.*"))
 if not activities:
     sys.exit("MainActivity introuvable")

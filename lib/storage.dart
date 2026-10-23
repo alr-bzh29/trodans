@@ -18,12 +18,15 @@ class Reglages {
   String racineMusique;
   String dossierDonnees;
 
-  /// Heure de fin habituelle des cours, en minutes depuis minuit (20h45 = 1245).
+  /// Heures habituelles de début et de fin des cours, en minutes depuis minuit
+  /// (19h30 = 1170, 20h45 = 1245). Le début servira au bilan.
+  int debutCoursMinutes;
   int finCoursMinutes;
 
   Reglages({
     required this.racineMusique,
     required this.dossierDonnees,
+    this.debutCoursMinutes = 19 * 60 + 30,
     this.finCoursMinutes = 20 * 60 + 45,
   });
 
@@ -43,6 +46,7 @@ class Reglages {
     return Reglages(
       racineMusique: (j['racineMusique'] as String?) ?? d.racineMusique,
       dossierDonnees: (j['dossierDonnees'] as String?) ?? d.dossierDonnees,
+      debutCoursMinutes: (j['debutCoursMinutes'] as int?) ?? d.debutCoursMinutes,
       finCoursMinutes: (j['finCoursMinutes'] as int?) ?? d.finCoursMinutes,
     );
   }
@@ -50,6 +54,7 @@ class Reglages {
   Map<String, dynamic> toJson() => {
         'racineMusique': racineMusique,
         'dossierDonnees': dossierDonnees,
+        'debutCoursMinutes': debutCoursMinutes,
         'finCoursMinutes': finCoursMinutes,
       };
 }

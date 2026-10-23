@@ -68,6 +68,26 @@ class _ReglagesEcranState extends State<ReglagesEcran> {
     }
   }
 
+  Widget _heure(String titre, String aide, int minutes, void Function(int) changer) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: const Icon(Icons.schedule),
+      title: Text(titre),
+      subtitle: Text(aide),
+      trailing: Text('${minutes ~/ 60}h${deux(minutes % 60)}',
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+      onTap: () async {
+        final h = await showTimePicker(
+          context: context,
+          initialTime: TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60),
+        );
+        if (h == null) return;
+        setState(() => changer(h.hour * 60 + h.minute));
+        await _enregistrer();
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final dernier = Depot.I.dernierScan;
@@ -115,25 +135,17 @@ class _ReglagesEcranState extends State<ReglagesEcran> {
               onEditingComplete: _enregistrer,
             ),
             const SizedBox(height: 12),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.schedule),
-              title: const Text('Heure de fin des cours'),
-              subtitle: const Text('Pour le temps restant affiché pendant le cours'),
-              trailing: Text(
-                '${r.finCoursMinutes ~/ 60}h${deux(r.finCoursMinutes % 60)}',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              onTap: () async {
-                final h = await showTimePicker(
-                  context: context,
-                  initialTime: TimeOfDay(
-                      hour: r.finCoursMinutes ~/ 60, minute: r.finCoursMinutes % 60),
-                );
-                if (h == null) return;
-                setState(() => r.finCoursMinutes = h.hour * 60 + h.minute);
-                await _enregistrer();
-              },
+            _heure(
+              'Heure de début des cours',
+              'Pour le bilan',
+              r.debutCoursMinutes,
+              (m) => r.debutCoursMinutes = m,
+            ),
+            _heure(
+              'Heure de fin des cours',
+              'Pour le temps restant affiché pendant le cours',
+              r.finCoursMinutes,
+              (m) => r.finCoursMinutes = m,
             ),
             const SizedBox(height: 12),
             FilledButton.icon(

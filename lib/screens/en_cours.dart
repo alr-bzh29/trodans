@@ -235,8 +235,8 @@ class _EnCoursState extends State<EnCours> {
     final cs = Theme.of(context).colorScheme;
     return SliverReorderableList(
       itemCount: lignes.length,
-      onReorder: (ancien, nouveau) {
-        if (nouveau > ancien) nouveau -= 1;
+      // onReorderItem : « nouveau » est déjà corrigé pour l'élément retiré.
+      onReorderItem: (ancien, nouveau) {
         c.deplacer(b, ancien, nouveau);
         _modifie();
       },

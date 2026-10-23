@@ -301,8 +301,8 @@ class _CoursEditionState extends State<CoursEdition> {
     final lignes = c.bloc(b);
     return SliverReorderableList(
       itemCount: lignes.length,
-      onReorder: (ancien, nouveau) {
-        if (nouveau > ancien) nouveau -= 1;
+      // onReorderItem : « nouveau » est déjà corrigé pour l'élément retiré.
+      onReorderItem: (ancien, nouveau) {
         c.deplacer(b, ancien, nouveau);
         _modifie();
       },

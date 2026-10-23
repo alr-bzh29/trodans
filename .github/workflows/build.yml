@@ -2,7 +2,7 @@ name: Compilation Android
 
 on:
   push:
-    branches: [main]
+    branches-ignore: [ci-logs]
   workflow_dispatch:
 
 permissions:
@@ -74,7 +74,9 @@ jobs:
           rm -f "$RUNNER_TEMP/trodans.jks"
           echo "APK=$OUT" >> "$GITHUB_ENV"
 
+      # Seule la branche main publie une version (visible dans Obtainium).
       - name: Publication (release GitHub pour Obtainium)
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ env.VERSION }}

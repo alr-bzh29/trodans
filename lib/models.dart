@@ -6,21 +6,50 @@
 
 import 'util.dart';
 
-enum Section { echauffement, mej, mystere, revisions, nouvelles, extras }
+/// Nature d'une ligne du cours. Les révisions et les nouvelles danses
+/// forment ensemble le « corpus », dans un ordre libre.
+enum Section { echauffement, mej, mystere, revisions, nouvelles }
+
+/// Les blocs du cours, dans l'ordre : trois parties fixes, puis le corpus.
+enum Bloc { echauffement, mej, mystere, corpus }
 
 extension SectionLabel on Section {
   String get label => switch (this) {
         Section.echauffement => 'Échauffement',
         Section.mej => 'Mise en jambes',
         Section.mystere => 'Mystère',
-        Section.revisions => 'Révisions',
-        Section.nouvelles => 'Nouvelles danses',
-        Section.extras => 'Extras',
+        Section.revisions => 'Révision',
+        Section.nouvelles => 'Nouveau',
+      };
+
+  Bloc get bloc => switch (this) {
+        Section.echauffement => Bloc.echauffement,
+        Section.mej => Bloc.mej,
+        Section.mystere => Bloc.mystere,
+        Section.revisions || Section.nouvelles => Bloc.corpus,
       };
 }
 
+extension BlocLabel on Bloc {
+  String get label => switch (this) {
+        Bloc.echauffement => 'Échauffement',
+        Bloc.mej => 'Mise en jambes',
+        Bloc.mystere => 'Mystère',
+        Bloc.corpus => 'Corpus',
+      };
+
+  /// Section donnée à une danse ajoutée dans ce bloc.
+  Section get sectionParDefaut => switch (this) {
+        Bloc.echauffement => Section.echauffement,
+        Bloc.mej => Section.mej,
+        Bloc.mystere => Section.mystere,
+        Bloc.corpus => Section.revisions,
+      };
+}
+
+/// Les anciens « extras » deviennent des révisions.
 Section sectionFromName(String? name) =>
-    Section.values.firstWhere((s) => s.name == name, orElse: () => Section.extras);
+    Section.values.firstWhere((s) => s.name == name, orElse: () => Section.revisions);
 
 /// Un fichier audio de la sonothèque.
 class Titre {
@@ -141,6 +170,9 @@ class Entree {
   int choix;
   bool fait;
 
+  /// Lien facultatif (ex. vidéo YouTube), ouvert dans Brave.
+  String? lien;
+
   Entree({
     required this.id,
     required this.section,
@@ -148,7 +180,12 @@ class Entree {
     List<TitreChoisi>? titres,
     this.choix = 0,
     this.fait = false,
+    this.lien,
   }) : titres = titres ?? [];
+
+  /// Danse saisie librement, sans titre de la sonothèque (ex. échauffement Spotify).
+  factory Entree.libre(String danse, Section s, {String? lien}) =>
+      Entree(id: nouvelId(), section: s, danse: danse, lien: lien);
 
   factory Entree.depuisTitre(Titre t, Section s) => Entree(
         id: nouvelId(),
@@ -178,6 +215,7 @@ class Entree {
       titres: titres,
       choix: (j['choix'] as int?) ?? 0,
       fait: (j['fait'] as bool?) ?? false,
+      lien: j['lien'] as String?,
     );
   }
 
@@ -188,6 +226,7 @@ class Entree {
         'titres': titres.map((t) => t.toJson()).toList(),
         'choix': choix,
         'fait': fait,
+        if (lien != null) 'lien': lien,
       };
 
   TitreChoisi? get titreChoisi =>
@@ -198,7 +237,7 @@ class Entree {
   String? get artiste => titreChoisi?.artiste;
 
   /// Nom affiché : la danse si elle est connue, sinon le titre.
-  String get nom => danse ?? (titre.isEmpty ? '(sans titre)' : titre);
+  String get nom => danse ?? (titre.isEmpty ? '(sans nom)' : titre);
 
   String get detail => titreChoisi?.detail ?? '';
 }
@@ -230,10 +269,10 @@ class Cours {
         entrees: ((j['entrees'] as List?) ?? [])
             .map((e) => Entree.fromJson(Map<String, dynamic>.from(e as Map)))
             .toList(),
-      );
+      )..normaliser();
 
   Map<String, dynamic> toJson() => {
-        'version': 1,
+        'version': 2,
         'date': date,
         'saison': saison,
         'numero': numero,
@@ -248,13 +287,29 @@ class Cours {
   /// Saison d'août à juillet : « 2026-2027 ».
   String get saison => saisonDe(jour);
 
-  /// Les entrées dans l'ordre du cours (par section, puis ordre d'ajout).
-  List<Entree> get deroule {
-    final res = <Entree>[];
-    for (final s in Section.values) {
-      res.addAll(entrees.where((e) => e.section == s));
-    }
-    return res;
+  /// Les lignes d'un bloc, dans leur ordre.
+  List<Entree> bloc(Bloc b) => entrees.where((e) => e.section.bloc == b).toList();
+
+  /// Toutes les lignes dans l'ordre du cours : échauffement, mise en jambes,
+  /// mystère, puis le corpus dans l'ordre choisi.
+  List<Entree> get deroule => [for (final b in Bloc.values) ...bloc(b)];
+
+  /// Range les lignes bloc par bloc (l'ordre à l'intérieur d'un bloc est conservé).
+  void normaliser() => entrees = deroule;
+
+  /// Déplace une ligne à l'intérieur de son bloc (indices du bloc).
+  void deplacer(Bloc b, int ancien, int nouveau) {
+    final l = bloc(b);
+    if (ancien < 0 || ancien >= l.length) return;
+    final e = l.removeAt(ancien);
+    l.insert(nouveau.clamp(0, l.length), e);
+    entrees = [for (final x in Bloc.values) ...(x == b ? l : bloc(x))];
+  }
+
+  /// Ajoute une ligne à la fin de son bloc.
+  void ajouter(Entree e) {
+    entrees.add(e);
+    normaliser();
   }
 }
 

@@ -107,9 +107,13 @@ Color couleurSection(Section s, Brightness b) {
     Section.mystere => clair ? const Color(0xFFB45309) : const Color(0xFFF2B66D),
     Section.revisions => clair ? const Color(0xFF6A1B9A) : const Color(0xFFCE93D8),
     Section.nouvelles => clair ? const Color(0xFF2E7D32) : const Color(0xFF81C784),
-    Section.extras => clair ? const Color(0xFF546E7A) : const Color(0xFFB0BEC5),
   };
 }
+
+/// Couleur du titre d'un bloc (le corpus prend la couleur principale du thème).
+Color couleurBloc(Bloc b, BuildContext context) => b == Bloc.corpus
+    ? Theme.of(context).colorScheme.primary
+    : couleurSection(b.sectionParDefaut, Theme.of(context).brightness);
 
 /// Fenêtre d'édition d'un texte Markdown. Renvoie null si annulé.
 Future<String?> editerMarkdown(BuildContext context, String titre, String initial) {

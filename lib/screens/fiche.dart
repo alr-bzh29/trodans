@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../markdown.dart';
+import 'lignes.dart';
 import '../models.dart';
 import '../player.dart';
 import '../storage.dart';
@@ -54,7 +55,7 @@ class _FicheEcranState extends State<FicheEcran> {
   Widget build(BuildContext context) {
     final contenu = Scaffold(
       appBar: AppBar(
-        title: Text(e.section.label),
+        title: Text(e.section.bloc == Bloc.corpus ? e.section.label : e.section.bloc.label),
         actions: [
           IconButton(
             tooltip: 'Modifier la note',
@@ -73,7 +74,16 @@ class _FicheEcranState extends State<FicheEcran> {
           Text(e.nom,
               style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold, height: 1.1)),
           const SizedBox(height: 4),
-          Text(e.detail, style: TextStyle(color: Theme.of(context).hintColor, fontSize: 15)),
+          Text(sousTitre(e), style: TextStyle(color: Theme.of(context).hintColor, fontSize: 15)),
+          if (e.lien != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                icon: const Icon(Icons.ondemand_video),
+                label: const Text('Ouvrir la vidéo'),
+                onPressed: () => ouvrirLienEntree(context, e),
+              ),
+            ),
           const SizedBox(height: 20),
           Card(
             child: Padding(

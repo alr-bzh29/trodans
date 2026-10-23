@@ -83,13 +83,52 @@ print("compileSdk = 37")
 activities = list((root / "android/app/src/main").rglob("MainActivity.*"))
 if not activities:
     sys.exit("MainActivity introuvable")
+MAIN_ACTIVITY = """package {pkg}
+
+import android.content.Intent
+import android.net.Uri
+import com.ryanheise.audioservice.AudioServiceActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
+
+// AudioServiceActivity : lecture en arrière-plan (just_audio_background).
+// Canal « liens » : ouvre les liens web dans Brave s'il est installé.
+class MainActivity : AudioServiceActivity() {{
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {{
+        super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "bzh.alr.trodans/liens")
+            .setMethodCallHandler {{ call, result ->
+                if (call.method != "ouvrir") {{
+                    result.notImplemented()
+                    return@setMethodCallHandler
+                }}
+                val url = call.argument<String>("url")
+                if (url == null) {{
+                    result.success(false)
+                    return@setMethodCallHandler
+                }}
+                val vue = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                try {{
+                    startActivity(Intent(vue).setPackage("com.brave.browser"))
+                    result.success(true)
+                }} catch (e: Exception) {{
+                    try {{
+                        startActivity(vue)
+                        result.success(true)
+                    }} catch (e2: Exception) {{
+                        result.success(false)
+                    }}
+                }}
+            }}
+    }}
+}}
+"""
+
 for act in activities:
     src = act.read_text(encoding="utf-8")
-    src = src.replace(
-        "import io.flutter.embedding.android.FlutterActivity",
-        "import com.ryanheise.audioservice.AudioServiceActivity",
-    )
-    src = re.sub(r"FlutterActivity\(\)", "AudioServiceActivity()", src)
-    src = re.sub(r"extends FlutterActivity", "extends AudioServiceActivity", src)
-    act.write_text(src, encoding="utf-8")
-    print(f"{act.name} adapté")
+    m = re.search(r"^package\s+([\w.]+)", src, re.M)
+    if not m or not act.name.endswith(".kt"):
+        sys.exit(f"MainActivity inattendue : {act}")
+    act.write_text(MAIN_ACTIVITY.format(pkg=m.group(1)), encoding="utf-8")
+    print(f"{act.name} remplacée")

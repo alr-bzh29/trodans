@@ -8,9 +8,12 @@ import '../player.dart';
 import '../storage.dart';
 import '../widgets.dart';
 import 'fiche.dart';
+import 'lignes.dart';
 
 /// Mode « en cours » : gros boutons, déroulé avec cases à cocher,
-/// compteur de présents. L'écran peut se mettre en veille normalement.
+/// compteur de présents. Les lignes se déplacent par glisser-déposer
+/// à l'intérieur de leur partie ; on peut ajouter ou retirer une danse.
+/// L'écran peut se mettre en veille normalement.
 class EnCours extends StatefulWidget {
   final Cours cours;
   const EnCours({super.key, required this.cours});
@@ -21,31 +24,42 @@ class EnCours extends StatefulWidget {
 
 class _EnCoursState extends State<EnCours> {
   late final Cours c = widget.cours;
-  late final List<Entree> _deroule = c.deroule;
-  int _index = 0;
+  String? _courantId;
   final Set<String> _reveles = {};
+
+  List<Entree> get _deroule => c.deroule;
+
+  int get _index {
+    final i = _deroule.indexWhere((e) => e.id == _courantId);
+    return i < 0 ? 0 : i;
+  }
 
   Entree? get _courante => _deroule.isEmpty ? null : _deroule[_index];
 
   @override
   void initState() {
     super.initState();
-    // Reprend à la première danse pas encore faite.
-    final i = _deroule.indexWhere((e) => !e.fait);
-    _index = i < 0 ? 0 : i;
-    // Si le titre déjà chargé fait partie du cours, on le sélectionne.
-    final j = _deroule.indexWhere((e) => e.chemin != null && e.chemin == Lecteur.I.chemin);
-    if (j >= 0) _index = j;
+    final d = _deroule;
+    // Reprend à la première danse pas encore faite…
+    final pasFaite = d.where((e) => !e.fait);
+    _courantId = pasFaite.isNotEmpty ? pasFaite.first.id : (d.isEmpty ? null : d.first.id);
+    // … ou à celle dont le titre est déjà chargé dans le lecteur.
+    for (final e in d) {
+      if (e.titres.any((t) => t.chemin == Lecteur.I.chemin)) _courantId = e.id;
+    }
   }
 
   Future<void> _sauver() => Depot.I.sauverCours(c);
 
+  void _modifie() {
+    if (mounted) setState(() {});
+    _sauver();
+  }
+
   bool _masque(Entree e) => e.section == Section.mystere && !_reveles.contains(e.id);
 
-  Future<void> _selectionner(int i, {bool lancer = false}) async {
-    if (i < 0 || i >= _deroule.length) return;
-    setState(() => _index = i);
-    final e = _deroule[i];
+  Future<void> _selectionner(Entree e, {bool lancer = false}) async {
+    setState(() => _courantId = e.id);
     if (e.chemin == null) return;
     final ok = await Lecteur.I.charger(
       chemin: e.chemin!,
@@ -56,11 +70,17 @@ class _EnCoursState extends State<EnCours> {
     if (!ok && mounted) message(context, 'Fichier introuvable : ${e.chemin}');
   }
 
+  void _voisin(int sens) {
+    final d = _deroule;
+    final j = _index + sens;
+    if (j >= 0 && j < d.length) _selectionner(d[j]);
+  }
+
   Future<void> _lecturePause() async {
     final e = _courante;
     if (e == null) return;
     if (Lecteur.I.chemin != e.chemin) {
-      await _selectionner(_index, lancer: true);
+      await _selectionner(e, lancer: true);
     } else {
       Lecteur.I.basculer();
     }
@@ -71,7 +91,37 @@ class _EnCoursState extends State<EnCours> {
     final jouait = Lecteur.I.enLecture && Lecteur.I.chemin == e.chemin;
     setState(() => e.choix = k);
     unawaited(_sauver());
-    if (_courante == e) await _selectionner(_index, lancer: jouait);
+    if (_courante == e) await _selectionner(e, lancer: jouait);
+  }
+
+  Future<void> _ajouter() async {
+    final b = await showDialog<Bloc>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Ajouter dans'),
+        children: [
+          for (final b in Bloc.values)
+            SimpleDialogOption(onPressed: () => Navigator.pop(ctx, b), child: Text(b.label)),
+        ],
+      ),
+    );
+    if (b == null || !mounted) return;
+    final e = await nouvelleLigne(context, b);
+    if (e == null) return;
+    c.ajouter(e);
+    _modifie();
+  }
+
+  Future<void> _retirer(Entree e) async {
+    if (!await confirmer(context, 'Retirer « ${e.nom} » du cours ?', oui: 'Retirer')) return;
+    if (_courantId == e.id) {
+      final d = _deroule;
+      final i = d.indexOf(e);
+      final suivant = i + 1 < d.length ? d[i + 1] : (i > 0 ? d[i - 1] : null);
+      _courantId = suivant?.id;
+    }
+    c.entrees.remove(e);
+    _modifie();
   }
 
   void _voirNotes() {
@@ -101,7 +151,6 @@ class _EnCoursState extends State<EnCours> {
     return Theme(
       data: themeEnCours(context),
       child: Builder(builder: (context) {
-        final cs = Theme.of(context).colorScheme;
         return Scaffold(
           appBar: AppBar(
             title: Text('Cours n°${c.numero}'),
@@ -112,6 +161,11 @@ class _EnCoursState extends State<EnCours> {
                   onPressed: _voirNotes,
                   icon: const Icon(Icons.sticky_note_2_outlined),
                 ),
+              IconButton(
+                tooltip: 'Ajouter une danse',
+                onPressed: _ajouter,
+                icon: const Icon(Icons.playlist_add),
+              ),
               IconButton(
                 tooltip: 'Un danseur de moins',
                 onPressed: () => _presents(-1),
@@ -135,53 +189,26 @@ class _EnCoursState extends State<EnCours> {
           ),
           body: Column(
             children: [
-              if (e != null) _carte(context, e, cs),
+              if (e != null) _carte(context, e),
               Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                  itemCount: _deroule.length,
-                  itemBuilder: (context, i) {
-                    final x = _deroule[i];
-                    final courant = i == _index;
-                    return Card(
-                      color: courant ? cs.secondaryContainer : null,
-                      margin: const EdgeInsets.symmetric(vertical: 3),
-                      child: ListTile(
-                        leading: Checkbox(
-                          value: x.fait,
-                          onChanged: (v) {
-                            setState(() => x.fait = v ?? false);
-                            _sauver();
-                          },
-                        ),
-                        title: Text(
-                          _masque(x) ? 'Mystère' : x.nom,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            decoration: x.fait ? TextDecoration.lineThrough : null,
+                child: CustomScrollView(
+                  slivers: [
+                    for (final b in Bloc.values)
+                      if (c.bloc(b).isNotEmpty) ...[
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 2),
+                            child: Text(b.label.toUpperCase(),
+                                style: TextStyle(
+                                    color: couleurBloc(b, context),
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.8)),
                           ),
                         ),
-                        subtitle: Text(
-                          x.titres.length > 1
-                              ? '${x.section.label} · ${x.titres.length} titres'
-                              : x.section.label,
-                          style: TextStyle(color: couleurSection(x.section, Brightness.dark)),
-                        ),
-                        onTap: () => _selectionner(i),
-                        trailing: IconButton(
-                          tooltip: 'Voir la fiche',
-                          icon: const Icon(Icons.description_outlined),
-                          onPressed: _masque(x)
-                              ? null
-                              : () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (_) => FicheEcran(entree: x, sombre: true)),
-                                  ),
-                        ),
-                      ),
-                    );
-                  },
+                        _liste(b),
+                      ],
+                    const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                  ],
                 ),
               ),
             ],
@@ -201,8 +228,109 @@ class _EnCoursState extends State<EnCours> {
     );
   }
 
-  Widget _carte(BuildContext context, Entree e, ColorScheme cs) {
+  Widget _liste(Bloc b) {
+    final lignes = c.bloc(b);
+    final cs = Theme.of(context).colorScheme;
+    return SliverReorderableList(
+      itemCount: lignes.length,
+      onReorder: (ancien, nouveau) {
+        if (nouveau > ancien) nouveau -= 1;
+        c.deplacer(b, ancien, nouveau);
+        _modifie();
+      },
+      itemBuilder: (context, i) {
+        final x = lignes[i];
+        final courant = x.id == _courante?.id;
+        final masque = _masque(x);
+        return Card(
+          key: ValueKey(x.id),
+          color: courant ? cs.secondaryContainer : null,
+          margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 12),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => _selectionner(x),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  ReorderableDragStartListener(
+                    index: i,
+                    child: const Padding(
+                      padding: EdgeInsets.fromLTRB(8, 10, 2, 10),
+                      child: Icon(Icons.drag_indicator),
+                    ),
+                  ),
+                  Checkbox(
+                    value: x.fait,
+                    onChanged: (v) {
+                      x.fait = v ?? false;
+                      _modifie();
+                    },
+                  ),
+                  if (b == Bloc.corpus) ...[
+                    EtiquetteType(
+                      entree: x,
+                      onBascule: () {
+                        basculerType(x);
+                        _modifie();
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          masque ? 'Mystère' : x.nom,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            decoration: x.fait ? TextDecoration.lineThrough : null,
+                          ),
+                        ),
+                        if (!masque)
+                          Text(sousTitre(x),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: Theme.of(context).hintColor, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    onSelected: (v) async {
+                      switch (v) {
+                        case 'fiche':
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => FicheEcran(entree: x, sombre: true)),
+                          );
+                          if (mounted) setState(() {});
+                        case 'titres':
+                          await gererTitres(context, x, _modifie);
+                        case 'retirer':
+                          await _retirer(x);
+                      }
+                    },
+                    itemBuilder: (_) => [
+                      if (!masque) const PopupMenuItem(value: 'fiche', child: Text('Voir la fiche')),
+                      if (!masque) const PopupMenuItem(value: 'titres', child: Text('Titres…')),
+                      const PopupMenuItem(value: 'retirer', child: Text('Retirer du cours')),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _carte(BuildContext context, Entree e) {
     final l = Lecteur.I;
+    final d = _deroule;
+    final i = _index;
     return Card(
       margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       child: Padding(
@@ -217,13 +345,16 @@ class _EnCoursState extends State<EnCours> {
               children: [
                 Row(
                   children: [
-                    Text(e.section.label.toUpperCase(),
+                    Text(
+                        e.section.bloc == Bloc.corpus
+                            ? e.section.label.toUpperCase()
+                            : e.section.bloc.label.toUpperCase(),
                         style: TextStyle(
                             color: couleurSection(e.section, Brightness.dark),
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.8)),
                     const Spacer(),
-                    Text('${_index + 1} / ${_deroule.length}'),
+                    Text('${i + 1} / ${d.length}'),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -236,7 +367,7 @@ class _EnCoursState extends State<EnCours> {
                           Text(masque ? 'Danse mystère' : e.nom,
                               style: const TextStyle(
                                   fontSize: 30, fontWeight: FontWeight.bold, height: 1.1)),
-                          if (!masque)
+                          if (!masque && e.titres.isNotEmpty)
                             Text(e.detail, style: TextStyle(color: Theme.of(context).hintColor)),
                         ],
                       ),
@@ -245,6 +376,13 @@ class _EnCoursState extends State<EnCours> {
                       OutlinedButton(
                         onPressed: () => setState(() => _reveles.add(e.id)),
                         child: const Text('Révéler'),
+                      ),
+                    if (e.lien != null && !masque)
+                      IconButton.filledTonal(
+                        tooltip: 'Ouvrir la vidéo',
+                        iconSize: 28,
+                        onPressed: () => ouvrirLienEntree(context, e),
+                        icon: const Icon(Icons.ondemand_video),
                       ),
                   ],
                 ),
@@ -264,15 +402,25 @@ class _EnCoursState extends State<EnCours> {
                       ],
                     ),
                   ),
-                if (actif) const Progression(restant: false, taillePolice: 22)
-                else const SizedBox(height: 16),
+                if (e.titres.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Text(
+                      e.lien != null ? 'Musique hors sonothèque : ouvre la vidéo.' : 'Musique hors sonothèque.',
+                      style: TextStyle(color: Theme.of(context).hintColor),
+                    ),
+                  )
+                else if (actif)
+                  const Progression(restant: false, taillePolice: 22)
+                else
+                  const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     IconButton.filledTonal(
                       tooltip: 'Danse précédente',
                       iconSize: 28,
-                      onPressed: _index > 0 ? () => _selectionner(_index - 1) : null,
+                      onPressed: i > 0 ? () => _voisin(-1) : null,
                       icon: const Icon(Icons.skip_previous),
                     ),
                     IconButton.filledTonal(
@@ -296,9 +444,7 @@ class _EnCoursState extends State<EnCours> {
                     IconButton.filledTonal(
                       tooltip: 'Danse suivante',
                       iconSize: 28,
-                      onPressed: _index < _deroule.length - 1
-                          ? () => _selectionner(_index + 1)
-                          : null,
+                      onPressed: i < d.length - 1 ? () => _voisin(1) : null,
                       icon: const Icon(Icons.skip_next),
                     ),
                   ],

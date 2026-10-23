@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../markdown.dart';
 import '../models.dart';
-import '../player.dart';
 import '../storage.dart';
 import '../util.dart';
 import '../widgets.dart';
 import 'en_cours.dart';
 import 'fiche.dart';
+import 'lignes.dart';
 import 'recap.dart';
-import 'sonotheque.dart';
 
-/// Préparation d'un cours : date, numéro, thème, notes, puis le déroulé :
-/// pour chaque section, des danses, et sous chaque danse un ou plusieurs titres.
+/// Préparation d'un cours : date, numéro, thème, notes, puis les blocs
+/// Échauffement, Mise en jambes, Mystère et le Corpus (révisions et nouvelles
+/// danses dans l'ordre choisi). Les lignes se déplacent par glisser-déposer.
 class CoursEdition extends StatefulWidget {
   final Cours cours;
   final bool nouveau;
@@ -42,6 +42,11 @@ class _CoursEditionState extends State<CoursEdition> {
     _enregistre = true;
   }
 
+  void _modifie() {
+    if (mounted) setState(() {});
+    _sauver();
+  }
+
   Future<void> _changerDate() async {
     final d = await showDatePicker(
       context: context,
@@ -62,115 +67,63 @@ class _CoursEditionState extends State<CoursEdition> {
   Future<void> _modifierNotes() async {
     final r = await editerMarkdown(context, 'Notes du cours', c.notes);
     if (r == null) return;
-    setState(() => c.notes = r.trim());
-    await _sauver();
+    c.notes = r.trim();
+    _modifie();
   }
 
-  Future<Titre?> _choisirTitre(String titreEcran, {String recherche = ''}) {
-    return Navigator.push<Titre>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => SonothequeEcran(
-            choix: true, titreEcran: titreEcran, rechercheInitiale: recherche),
-      ),
-    );
+  Future<void> _ajouter(Bloc b) async {
+    final e = await nouvelleLigne(context, b);
+    if (e == null) return;
+    // Même danse déjà dans le bloc : le titre s'ajoute sous elle.
+    final existante = c.bloc(b).where((x) => x.danse != null && x.danse == e.danse).toList();
+    if (existante.isNotEmpty && e.titres.isNotEmpty) {
+      final x = existante.first;
+      if (!x.titres.any((t) => t.chemin == e.titres.first.chemin)) x.titres.add(e.titres.first);
+    } else {
+      c.ajouter(e);
+    }
+    _modifie();
   }
 
-  /// Ajoute une danse à la section (à partir d'un de ses titres).
-  /// Si cette danse est déjà dans la section, le titre s'ajoute sous elle.
-  Future<void> _ajouterDanse(Section s) async {
-    final t = await _choisirTitre('Ajouter · ${s.label}');
-    if (t == null) return;
-    setState(() {
-      Entree? existante;
-      if (t.danse != null) {
-        for (final e in c.entrees) {
-          if (e.section == s && e.danse == t.danse) existante = e;
-        }
-      }
-      if (existante != null) {
-        if (!existante.titres.any((x) => x.chemin == t.chemin)) {
-          existante.titres.add(TitreChoisi.depuis(t));
-        }
-      } else {
-        c.entrees.add(Entree.depuisTitre(t, s));
-      }
-    });
-    await _sauver();
-  }
-
-  Future<void> _ajouterTitre(Entree e) async {
-    final t = await _choisirTitre('Titre pour ${e.nom}', recherche: e.danse ?? '');
-    if (t == null) return;
-    if (e.titres.any((x) => x.chemin == t.chemin)) return;
-    setState(() => e.titres.add(TitreChoisi.depuis(t)));
-    await _sauver();
-  }
-
-  Future<void> _retirerTitre(Entree e, TitreChoisi t) async {
-    setState(() {
-      e.titres.remove(t);
-      if (e.choix >= e.titres.length) e.choix = 0;
-    });
-    await _sauver();
-  }
-
-  Future<void> _ecouter(TitreChoisi t, String nom) async {
-    final ok = await Lecteur.I.charger(chemin: t.chemin, nom: nom, detail: t.detail, lancer: true);
-    if (!ok && mounted) message(context, 'Fichier introuvable : ${t.chemin}');
-  }
-
-  Future<void> _renommer(Entree e) async {
-    final ctrl = TextEditingController(text: e.danse ?? '');
-    final r = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Nom de la danse'),
-        content: TextField(controller: ctrl, autofocus: true),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('OK')),
-        ],
-      ),
-    );
-    if (r == null) return;
-    setState(() => e.danse = r.trim().isEmpty ? null : r.trim());
-    await _sauver();
-  }
-
-  Future<void> _deplacer(Entree e, int sens) async {
-    final memeSection = c.entrees.where((x) => x.section == e.section).toList();
-    final i = memeSection.indexOf(e);
-    final j = i + sens;
-    if (j < 0 || j >= memeSection.length) return;
-    final autre = memeSection[j];
-    final a = c.entrees.indexOf(e);
-    final b = c.entrees.indexOf(autre);
-    setState(() {
-      c.entrees[a] = autre;
-      c.entrees[b] = e;
-    });
-    await _sauver();
-  }
-
-  Future<void> _changerSection(Entree e) async {
-    final s = await showDialog<Section>(
+  Future<void> _changerBloc(Entree e) async {
+    final b = await showDialog<Bloc>(
       context: context,
       builder: (ctx) => SimpleDialog(
         title: const Text('Déplacer vers'),
         children: [
-          for (final s in Section.values)
-            SimpleDialogOption(onPressed: () => Navigator.pop(ctx, s), child: Text(s.label)),
+          for (final b in Bloc.values)
+            SimpleDialogOption(onPressed: () => Navigator.pop(ctx, b), child: Text(b.label)),
         ],
       ),
     );
-    if (s == null || s == e.section) return;
-    setState(() {
-      c.entrees.remove(e);
-      e.section = s;
-      c.entrees.add(e);
-    });
-    await _sauver();
+    if (b == null || b == e.section.bloc) return;
+    c.entrees.remove(e);
+    e.section = b.sectionParDefaut;
+    c.ajouter(e);
+    _modifie();
+  }
+
+  Future<void> _menu(Entree e, String v) async {
+    switch (v) {
+      case 'titres':
+        await gererTitres(context, e, _modifie);
+      case 'nom':
+        final r = await saisirTexte(context, 'Nom de la danse', initial: e.danse ?? '');
+        if (r == null) return;
+        e.danse = r.trim().isEmpty ? null : r.trim();
+        _modifie();
+      case 'lien':
+        final r = await saisirTexte(context, 'Lien (vidéo YouTube…)',
+            initial: e.lien ?? '', aide: 'Laisse vide pour retirer le lien.', clavier: TextInputType.url);
+        if (r == null) return;
+        e.lien = r.trim().isEmpty ? null : r.trim();
+        _modifie();
+      case 'bloc':
+        await _changerBloc(e);
+      case 'suppr':
+        c.entrees.remove(e);
+        _modifie();
+    }
   }
 
   Future<void> _supprimer() async {
@@ -213,46 +166,14 @@ class _CoursEditionState extends State<CoursEdition> {
             ),
           ],
         ),
-        body: ListView(
-          padding: const EdgeInsets.only(bottom: 96),
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.event),
-                      label: Text(dateFrCourte(c.jour)),
-                      onPressed: _changerDate,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: 90,
-                    child: TextField(
-                      controller: _numero,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                          labelText: 'N°', border: OutlineInputBorder(), isDense: true),
-                      onChanged: (v) => setState(() => c.numero = int.tryParse(v) ?? c.numero),
-                      onEditingComplete: _sauver,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: TextField(
-                controller: _theme,
-                decoration: const InputDecoration(
-                    labelText: 'Thème', border: OutlineInputBorder(), isDense: true),
-                onEditingComplete: _sauver,
-              ),
-            ),
-            _carteNotes(),
-            for (final s in Section.values) ..._section(s),
+        body: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(child: _entete()),
+            for (final b in Bloc.values) ...[
+              SliverToBoxAdapter(child: _titreBloc(b)),
+              _liste(b),
+            ],
+            const SliverToBoxAdapter(child: SizedBox(height: 96)),
           ],
         ),
         floatingActionButton: FloatingActionButton.extended(
@@ -273,172 +194,204 @@ class _CoursEditionState extends State<CoursEdition> {
     );
   }
 
-  Widget _carteNotes() {
+  Widget _entete() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: Card(
-        margin: EdgeInsets.zero,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: _modifierNotes,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 6, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.event),
+                  label: Text(dateFrCourte(c.jour)),
+                  onPressed: _changerDate,
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 90,
+                child: TextField(
+                  controller: _numero,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                      labelText: 'N°', border: OutlineInputBorder(), isDense: true),
+                  onChanged: (v) => setState(() => c.numero = int.tryParse(v) ?? c.numero),
+                  onEditingComplete: _sauver,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _theme,
+            decoration: const InputDecoration(
+                labelText: 'Thème', border: OutlineInputBorder(), isDense: true),
+            onEditingComplete: _sauver,
+          ),
+          const SizedBox(height: 12),
+          Card(
+            margin: EdgeInsets.zero,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: _modifierNotes,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 4, 6, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text('NOTES DU COURS',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.8,
-                              color: Theme.of(context).colorScheme.primary)),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text('NOTES DU COURS',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.8,
+                                  color: Theme.of(context).colorScheme.primary)),
+                        ),
+                        IconButton(
+                          tooltip: 'Modifier les notes',
+                          icon: const Icon(Icons.edit, size: 20),
+                          onPressed: _modifierNotes,
+                        ),
+                      ],
                     ),
-                    IconButton(
-                      tooltip: 'Modifier les notes',
-                      icon: const Icon(Icons.edit, size: 20),
-                      onPressed: _modifierNotes,
-                    ),
+                    if (c.notes.trim().isEmpty)
+                      Text('Touche pour écrire tes notes (Markdown : **gras**, - listes…)',
+                          style: TextStyle(color: Theme.of(context).hintColor))
+                    else
+                      MarkdownSimple(c.notes, taille: 15),
                   ],
                 ),
-                if (c.notes.trim().isEmpty)
-                  Text('Touche pour écrire tes notes (Markdown : **gras**, - listes…)',
-                      style: TextStyle(color: Theme.of(context).hintColor))
-                else
-                  MarkdownSimple(c.notes, taille: 15),
-              ],
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 
-  List<Widget> _section(Section s) {
-    final entrees = c.entrees.where((e) => e.section == s).toList();
-    final couleur = couleurSection(s, Theme.of(context).brightness);
-    return [
-      Container(
-        margin: const EdgeInsets.fromLTRB(12, 20, 12, 4),
-        padding: const EdgeInsets.fromLTRB(12, 2, 0, 2),
-        decoration: BoxDecoration(
-          color: couleur.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(8),
-        ),
+  Widget _titreBloc(Bloc b) {
+    final couleur = couleurBloc(b, context);
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 20, 12, 4),
+      padding: const EdgeInsets.fromLTRB(12, 2, 0, 2),
+      decoration: BoxDecoration(
+        color: couleur.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(b.label.toUpperCase(),
+                style: TextStyle(color: couleur, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
+          ),
+          TextButton.icon(
+            style: TextButton.styleFrom(foregroundColor: couleur),
+            icon: const Icon(Icons.add),
+            label: const Text('Ajouter'),
+            onPressed: () => _ajouter(b),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _liste(Bloc b) {
+    final lignes = c.bloc(b);
+    return SliverReorderableList(
+      itemCount: lignes.length,
+      onReorder: (ancien, nouveau) {
+        if (nouveau > ancien) nouveau -= 1;
+        c.deplacer(b, ancien, nouveau);
+        _modifie();
+      },
+      itemBuilder: (context, i) {
+        final e = lignes[i];
+        return Material(
+          key: ValueKey(e.id),
+          color: Colors.transparent,
+          child: _ligne(e, i, b),
+        );
+      },
+    );
+  }
+
+  Widget _ligne(Entree e, int i, Bloc b) {
+    final couleur = couleurSection(e.section, Theme.of(context).brightness);
+    return InkWell(
+      onTap: () =>
+          Navigator.push(context, MaterialPageRoute(builder: (_) => FicheEcran(entree: e))),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(4, 2, 0, 2),
         child: Row(
           children: [
-            Expanded(
-              child: Text(s.label.toUpperCase(),
-                  style: TextStyle(
-                      color: couleur, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
+            ReorderableDragStartListener(
+              index: i,
+              child: const Padding(
+                padding: EdgeInsets.all(10),
+                child: Icon(Icons.drag_indicator),
+              ),
             ),
-            TextButton.icon(
-              style: TextButton.styleFrom(foregroundColor: couleur),
-              icon: const Icon(Icons.add),
-              label: const Text('Danse'),
-              onPressed: () => _ajouterDanse(s),
+            if (b == Bloc.corpus) ...[
+              EtiquetteType(
+                entree: e,
+                onBascule: () {
+                  basculerType(e);
+                  _modifie();
+                },
+              ),
+              const SizedBox(width: 10),
+            ] else
+              Container(width: 4, height: 36, margin: const EdgeInsets.only(right: 10), color: couleur),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        if (e.fait)
+                          const Padding(
+                            padding: EdgeInsets.only(right: 6),
+                            child: Icon(Icons.check_circle, color: Colors.green, size: 18),
+                          ),
+                        Flexible(
+                          child: Text(e.nom,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                        ),
+                      ],
+                    ),
+                    InkWell(
+                      onTap: e.titres.isEmpty ? null : () => gererTitres(context, e, _modifie),
+                      child: Text(sousTitre(e),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: Theme.of(context).hintColor)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (e.lien != null)
+              IconButton(
+                tooltip: 'Ouvrir le lien',
+                icon: const Icon(Icons.ondemand_video),
+                onPressed: () => ouvrirLienEntree(context, e),
+              ),
+            PopupMenuButton<String>(
+              onSelected: (v) => _menu(e, v),
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'titres', child: Text('Titres…')),
+                PopupMenuItem(value: 'nom', child: Text('Nom de la danse')),
+                PopupMenuItem(value: 'lien', child: Text('Lien vidéo')),
+                PopupMenuItem(value: 'bloc', child: Text('Changer de partie')),
+                PopupMenuItem(value: 'suppr', child: Text('Retirer du cours')),
+              ],
             ),
           ],
         ),
-      ),
-      for (final e in entrees) _danse(e, couleur),
-    ];
-  }
-
-  Widget _danse(Entree e, Color couleur) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 2, 4, 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(width: 4, height: 28, color: couleur),
-              const SizedBox(width: 10),
-              if (e.fait) ...[
-                const Icon(Icons.check_circle, color: Colors.green, size: 20),
-                const SizedBox(width: 6),
-              ],
-              Expanded(
-                child: InkWell(
-                  onTap: () => Navigator.push(
-                      context, MaterialPageRoute(builder: (_) => FicheEcran(entree: e))),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Text(e.nom,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                  ),
-                ),
-              ),
-              PopupMenuButton<String>(
-                onSelected: (v) async {
-                  switch (v) {
-                    case 'titre':
-                      await _ajouterTitre(e);
-                    case 'nom':
-                      await _renommer(e);
-                    case 'haut':
-                      await _deplacer(e, -1);
-                    case 'bas':
-                      await _deplacer(e, 1);
-                    case 'section':
-                      await _changerSection(e);
-                    case 'suppr':
-                      setState(() => c.entrees.remove(e));
-                      await _sauver();
-                  }
-                },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'titre', child: Text('Ajouter un titre')),
-                  PopupMenuItem(value: 'nom', child: Text('Renommer la danse')),
-                  PopupMenuItem(value: 'haut', child: Text('Monter')),
-                  PopupMenuItem(value: 'bas', child: Text('Descendre')),
-                  PopupMenuItem(value: 'section', child: Text('Changer de section')),
-                  PopupMenuItem(value: 'suppr', child: Text('Retirer la danse du cours')),
-                ],
-              ),
-            ],
-          ),
-          for (var i = 0; i < e.titres.length; i++)
-            Padding(
-              padding: const EdgeInsets.only(left: 14),
-              child: Row(
-                children: [
-                  IconButton(
-                    tooltip: 'Écouter',
-                    visualDensity: VisualDensity.compact,
-                    icon: Icon(Lecteur.I.chemin == e.titres[i].chemin
-                        ? Icons.graphic_eq
-                        : Icons.play_circle_outline),
-                    onPressed: () => _ecouter(e.titres[i], e.nom),
-                  ),
-                  Expanded(
-                    child: Text(e.titres[i].detail,
-                        style: TextStyle(
-                            fontWeight: i == e.choix && e.titres.length > 1
-                                ? FontWeight.w600
-                                : FontWeight.normal)),
-                  ),
-                  IconButton(
-                    tooltip: 'Retirer ce titre',
-                    visualDensity: VisualDensity.compact,
-                    icon: const Icon(Icons.close, size: 18),
-                    onPressed: () => _retirerTitre(e, e.titres[i]),
-                  ),
-                ],
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.only(left: 14),
-            child: TextButton.icon(
-              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Titre'),
-              onPressed: () => _ajouterTitre(e),
-            ),
-          ),
-        ],
       ),
     );
   }

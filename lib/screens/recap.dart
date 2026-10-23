@@ -7,22 +7,28 @@ import '../widgets.dart';
 
 /// Texte du récap pour WhatsApp (gras = *texte*).
 /// Seules les danses cochées « faites » sont reprises, sauf si aucune ne l'est.
+/// Parties fixes regroupées, puis le corpus dans l'ordre réel du cours.
 String genererRecap(Cours c) {
-  final faites = c.entrees.where((e) => e.fait).toList();
-  final source = faites.isEmpty ? c.entrees : faites;
+  final faites = c.deroule.where((e) => e.fait).toList();
+  final source = faites.isEmpty ? c.deroule : faites;
+  String nom(Entree e) => e.danse != null
+      ? '*${e.danse}*'
+      : (e.artiste == null ? e.titre : '${e.titre} (${e.artiste})');
   final b = StringBuffer()
     ..writeln('Bonjour ! Vous étiez ${c.presents} danseuses et danseurs '
         'pour ce cours du ${dateFr(c.jour)}.')
     ..writeln('Voici le récap :');
-  for (final s in Section.values) {
+  for (final bloc in [Bloc.echauffement, Bloc.mej, Bloc.mystere]) {
     final noms = <String>[];
-    for (final e in source.where((e) => e.section == s)) {
-      final n = e.danse != null
-          ? '*${e.danse}*'
-          : (e.artiste == null ? e.titre : '${e.titre} (${e.artiste})');
+    for (final e in source.where((e) => e.section.bloc == bloc)) {
+      final n = nom(e);
       if (!noms.contains(n)) noms.add(n);
     }
-    if (noms.isNotEmpty) b.writeln('- ${s.label} : ${noms.join(', ')}');
+    if (noms.isNotEmpty) b.writeln('- ${bloc.label} : ${noms.join(', ')}');
+  }
+  for (final e in source.where((e) => e.section.bloc == Bloc.corpus)) {
+    final type = e.section == Section.nouvelles ? 'nouveau' : 'révision';
+    b.writeln('- ${nom(e)} ($type)');
   }
   return b.toString().trimRight();
 }

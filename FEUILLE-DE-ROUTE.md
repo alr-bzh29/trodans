@@ -32,6 +32,11 @@
 - [ ] Gestion des conflits Syncthing (`sync-conflict`)
 - [ ] APK séparés par architecture (plus légers, utile pour la Fire 7)
 
+## Idées pour après la V2
+- [ ] **Import d'une playlist m3u comme cours** : chaque titre devient une ligne ;
+      on donne un nom de danse à chacun et on les répartit dans les parties
+      (échauffement, mise en jambes, mystère, corpus révision / nouveau)
+
 ## Appareils
 - POCO X3 (Android 12) — téléphone des cours
 - Fire 7 5e gén. sous LineageOS 7.1.2 (Android 7.1)

@@ -114,7 +114,28 @@ class _ReglagesEcranState extends State<ReglagesEcran> {
               ),
               onEditingComplete: _enregistrer,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 12),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.schedule),
+              title: const Text('Heure de fin des cours'),
+              subtitle: const Text('Pour le temps restant affiché pendant le cours'),
+              trailing: Text(
+                '${r.finCoursMinutes ~/ 60}h${deux(r.finCoursMinutes % 60)}',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              onTap: () async {
+                final h = await showTimePicker(
+                  context: context,
+                  initialTime: TimeOfDay(
+                      hour: r.finCoursMinutes ~/ 60, minute: r.finCoursMinutes % 60),
+                );
+                if (h == null) return;
+                setState(() => r.finCoursMinutes = h.hour * 60 + h.minute);
+                await _enregistrer();
+              },
+            ),
+            const SizedBox(height: 12),
             FilledButton.icon(
               style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
               onPressed: _scan ? null : _scanner,

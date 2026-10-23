@@ -18,7 +18,14 @@ class Reglages {
   String racineMusique;
   String dossierDonnees;
 
-  Reglages({required this.racineMusique, required this.dossierDonnees});
+  /// Heure de fin habituelle des cours, en minutes depuis minuit (20h45 = 1245).
+  int finCoursMinutes;
+
+  Reglages({
+    required this.racineMusique,
+    required this.dossierDonnees,
+    this.finCoursMinutes = 20 * 60 + 45,
+  });
 
   factory Reglages.parDefaut() {
     if (Platform.isAndroid) {
@@ -36,11 +43,15 @@ class Reglages {
     return Reglages(
       racineMusique: (j['racineMusique'] as String?) ?? d.racineMusique,
       dossierDonnees: (j['dossierDonnees'] as String?) ?? d.dossierDonnees,
+      finCoursMinutes: (j['finCoursMinutes'] as int?) ?? d.finCoursMinutes,
     );
   }
 
-  Map<String, dynamic> toJson() =>
-      {'racineMusique': racineMusique, 'dossierDonnees': dossierDonnees};
+  Map<String, dynamic> toJson() => {
+        'racineMusique': racineMusique,
+        'dossierDonnees': dossierDonnees,
+        'finCoursMinutes': finCoursMinutes,
+      };
 }
 
 /// Écrit un fichier de façon atomique (fichier temporaire puis renommage),

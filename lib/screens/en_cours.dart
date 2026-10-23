@@ -8,6 +8,7 @@ import '../player.dart';
 import '../storage.dart';
 import '../widgets.dart';
 import 'fiche.dart';
+import 'horloge.dart';
 import 'lignes.dart';
 
 /// Mode « en cours » : gros boutons, déroulé avec cases à cocher,
@@ -189,6 +190,7 @@ class _EnCoursState extends State<EnCours> {
           ),
           body: Column(
             children: [
+              const HorlogeCours(),
               if (e != null) _carte(context, e),
               Expanded(
                 child: CustomScrollView(

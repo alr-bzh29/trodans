@@ -79,59 +79,103 @@ class Titre {
   }
 }
 
-/// Une ligne du déroulé d'un cours.
+/// Un titre choisi pour une danse du cours (copie des infos du fichier,
+/// pour rester lisible même si le fichier a été déplacé).
+class TitreChoisi {
+  final String chemin;
+  final String titre;
+  final String? artiste;
+
+  TitreChoisi({required this.chemin, required this.titre, this.artiste});
+
+  factory TitreChoisi.depuis(Titre t) =>
+      TitreChoisi(chemin: t.chemin, titre: t.titre, artiste: t.artiste);
+
+  factory TitreChoisi.fromJson(Map<String, dynamic> j) => TitreChoisi(
+        chemin: j['chemin'] as String,
+        titre: (j['titre'] as String?) ?? '',
+        artiste: j['artiste'] as String?,
+      );
+
+  Map<String, dynamic> toJson() =>
+      {'chemin': chemin, 'titre': titre, if (artiste != null) 'artiste': artiste};
+
+  String get detail => artiste == null ? titre : '$titre — $artiste';
+}
+
+/// Une ligne du déroulé d'un cours : une danse et un ou plusieurs titres possibles.
 class Entree {
   final String id;
   Section section;
-  String? chemin;
-  String titre;
-  String? artiste;
+
+  /// Nom de la danse (null pour un titre sans danse, ex. échauffement).
   String? danse;
+  List<TitreChoisi> titres;
+
+  /// Index du titre retenu pour la lecture.
+  int choix;
   bool fait;
 
   Entree({
     required this.id,
     required this.section,
-    this.chemin,
-    required this.titre,
-    this.artiste,
     this.danse,
+    List<TitreChoisi>? titres,
+    this.choix = 0,
     this.fait = false,
-  });
+  }) : titres = titres ?? [];
 
   factory Entree.depuisTitre(Titre t, Section s) => Entree(
         id: nouvelId(),
         section: s,
-        chemin: t.chemin,
-        titre: t.titre,
-        artiste: t.artiste,
         danse: t.danse,
+        titres: [TitreChoisi.depuis(t)],
       );
 
-  factory Entree.fromJson(Map<String, dynamic> j) => Entree(
-        id: (j['id'] as String?) ?? nouvelId(),
-        section: sectionFromName(j['section'] as String?),
-        chemin: j['chemin'] as String?,
-        titre: (j['titre'] as String?) ?? '',
-        artiste: j['artiste'] as String?,
-        danse: j['danse'] as String?,
-        fait: (j['fait'] as bool?) ?? false,
-      );
+  factory Entree.fromJson(Map<String, dynamic> j) {
+    var titres = ((j['titres'] as List?) ?? [])
+        .map((e) => TitreChoisi.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+    // Ancien format (0.1.6) : un seul titre directement dans l'entrée.
+    if (titres.isEmpty && j['chemin'] is String) {
+      titres = [
+        TitreChoisi(
+          chemin: j['chemin'] as String,
+          titre: (j['titre'] as String?) ?? '',
+          artiste: j['artiste'] as String?,
+        )
+      ];
+    }
+    return Entree(
+      id: (j['id'] as String?) ?? nouvelId(),
+      section: sectionFromName(j['section'] as String?),
+      danse: j['danse'] as String?,
+      titres: titres,
+      choix: (j['choix'] as int?) ?? 0,
+      fait: (j['fait'] as bool?) ?? false,
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'section': section.name,
-        if (chemin != null) 'chemin': chemin,
-        'titre': titre,
-        if (artiste != null) 'artiste': artiste,
         if (danse != null) 'danse': danse,
+        'titres': titres.map((t) => t.toJson()).toList(),
+        'choix': choix,
         'fait': fait,
       };
 
-  /// Nom affiché : la danse si elle est connue, sinon le titre.
-  String get nom => danse ?? titre;
+  TitreChoisi? get titreChoisi =>
+      titres.isEmpty ? null : titres[choix.clamp(0, titres.length - 1)];
 
-  String get detail => artiste == null ? titre : '$titre — $artiste';
+  String? get chemin => titreChoisi?.chemin;
+  String get titre => titreChoisi?.titre ?? '';
+  String? get artiste => titreChoisi?.artiste;
+
+  /// Nom affiché : la danse si elle est connue, sinon le titre.
+  String get nom => danse ?? (titre.isEmpty ? '(sans titre)' : titre);
+
+  String get detail => titreChoisi?.detail ?? '';
 }
 
 class Cours {

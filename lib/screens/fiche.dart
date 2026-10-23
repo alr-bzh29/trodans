@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../markdown.dart';
 import '../models.dart';
 import '../player.dart';
 import '../storage.dart';
@@ -42,24 +43,7 @@ class _FicheEcranState extends State<FicheEcran> {
   Future<void> _modifierNote() async {
     final d = _danse;
     if (d == null) return;
-    final ctrl = TextEditingController(text: d.note);
-    final r = await showDialog<String>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: Text('Note · ${d.nom}'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          minLines: 4,
-          maxLines: 12,
-          decoration: const InputDecoration(border: OutlineInputBorder()),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: const Text('Annuler')),
-          FilledButton(onPressed: () => Navigator.pop(c, ctrl.text), child: const Text('Enregistrer')),
-        ],
-      ),
-    );
+    final r = await editerMarkdown(context, 'Note · ${d.nom}', d.note);
     if (r == null) return;
     d.note = r.trim();
     await Depot.I.sauverDanse(d);
@@ -112,7 +96,7 @@ class _FicheEcranState extends State<FicheEcran> {
                       label: const Text('Ajouter une note pour cette danse'),
                     )
                   else
-                    Text(_danse!.note, style: const TextStyle(fontSize: 19, height: 1.45)),
+                    MarkdownSimple(_danse!.note, taille: 19),
                 ],
               ),
             ),

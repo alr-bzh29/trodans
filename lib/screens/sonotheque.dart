@@ -11,14 +11,23 @@ import '../widgets.dart';
 class SonothequeEcran extends StatefulWidget {
   final bool choix;
   final String? titreEcran;
-  const SonothequeEcran({super.key, this.choix = false, this.titreEcran});
+  final String rechercheInitiale;
+  const SonothequeEcran(
+      {super.key, this.choix = false, this.titreEcran, this.rechercheInitiale = ''});
 
   @override
   State<SonothequeEcran> createState() => _SonothequeEcranState();
 }
 
 class _SonothequeEcranState extends State<SonothequeEcran> {
-  String _recherche = '';
+  late String _recherche = widget.rechercheInitiale;
+  late final _ctrl = TextEditingController(text: widget.rechercheInitiale);
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   List<Titre> get _filtres {
     final mots = plier(_recherche).split(' ').where((m) => m.isNotEmpty).toList();
@@ -48,7 +57,8 @@ class _SonothequeEcranState extends State<SonothequeEcran> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
             child: TextField(
-              autofocus: widget.choix,
+              controller: _ctrl,
+              autofocus: widget.choix && widget.rechercheInitiale.isEmpty,
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.search),
                 hintText: 'Danse, titre, artiste…',

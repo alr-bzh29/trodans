@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../markdown.dart';
 import '../models.dart';
 import '../player.dart';
 import '../storage.dart';
@@ -63,6 +66,25 @@ class _EnCoursState extends State<EnCours> {
     }
   }
 
+  Future<void> _choisirTitre(Entree e, int k) async {
+    if (k == e.choix) return;
+    final jouait = Lecteur.I.enLecture && Lecteur.I.chemin == e.chemin;
+    setState(() => e.choix = k);
+    unawaited(_sauver());
+    if (_courante == e) await _selectionner(_index, lancer: jouait);
+  }
+
+  void _voirNotes() {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Notes du cours'),
+        content: SingleChildScrollView(child: MarkdownSimple(c.notes, taille: 17)),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Fermer'))],
+      ),
+    );
+  }
+
   void _presents(int delta) {
     setState(() => c.presents = (c.presents + delta).clamp(0, 999));
     _sauver();
@@ -84,6 +106,12 @@ class _EnCoursState extends State<EnCours> {
           appBar: AppBar(
             title: Text('Cours n°${c.numero}'),
             actions: [
+              if (c.notes.trim().isNotEmpty)
+                IconButton(
+                  tooltip: 'Notes du cours',
+                  onPressed: _voirNotes,
+                  icon: const Icon(Icons.sticky_note_2_outlined),
+                ),
               IconButton(
                 tooltip: 'Un danseur de moins',
                 onPressed: () => _presents(-1),
@@ -133,7 +161,12 @@ class _EnCoursState extends State<EnCours> {
                             decoration: x.fait ? TextDecoration.lineThrough : null,
                           ),
                         ),
-                        subtitle: Text(x.section.label),
+                        subtitle: Text(
+                          x.titres.length > 1
+                              ? '${x.section.label} · ${x.titres.length} titres'
+                              : x.section.label,
+                          style: TextStyle(color: couleurSection(x.section, Brightness.dark)),
+                        ),
                         onTap: () => _selectionner(i),
                         trailing: IconButton(
                           tooltip: 'Voir la fiche',
@@ -186,7 +219,9 @@ class _EnCoursState extends State<EnCours> {
                   children: [
                     Text(e.section.label.toUpperCase(),
                         style: TextStyle(
-                            color: cs.primary, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
+                            color: couleurSection(e.section, Brightness.dark),
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.8)),
                     const Spacer(),
                     Text('${_index + 1} / ${_deroule.length}'),
                   ],
@@ -213,6 +248,22 @@ class _EnCoursState extends State<EnCours> {
                       ),
                   ],
                 ),
+                if (e.titres.length > 1 && !masque)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        for (var k = 0; k < e.titres.length; k++)
+                          ChoiceChip(
+                            label: Text(e.titres[k].detail),
+                            selected: k == e.choix,
+                            onSelected: (_) => _choisirTitre(e, k),
+                          ),
+                      ],
+                    ),
+                  ),
                 if (actif) const Progression(restant: false, taillePolice: 22)
                 else const SizedBox(height: 16),
                 Row(

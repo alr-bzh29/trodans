@@ -18,6 +18,7 @@ class _ReglagesEcranState extends State<ReglagesEcran> {
   late final _musique = TextEditingController(text: r.racineMusique);
   late final _donnees = TextEditingController(text: r.dossierDonnees);
   bool _scan = false;
+  int _traites = 0;
   bool? _acces;
 
   @override
@@ -51,9 +52,14 @@ class _ReglagesEcranState extends State<ReglagesEcran> {
 
   Future<void> _scanner() async {
     await _enregistrer();
-    setState(() => _scan = true);
+    setState(() {
+      _scan = true;
+      _traites = 0;
+    });
     try {
-      final n = await Depot.I.scanner();
+      final n = await Depot.I.scanner(progres: (k) {
+        if (mounted) setState(() => _traites = k);
+      });
       if (mounted) message(context, '$n titres trouvés');
     } catch (e) {
       if (mounted) message(context, 'Échec du scan : $e');
@@ -116,7 +122,7 @@ class _ReglagesEcranState extends State<ReglagesEcran> {
                   ? const SizedBox(
                       width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.manage_search),
-              label: Text(_scan ? 'Scan en cours…' : 'Scanner la sonothèque'),
+              label: Text(_scan ? 'Scan en cours… $_traites titres' : 'Scanner la sonothèque'),
             ),
             const SizedBox(height: 8),
             Text(

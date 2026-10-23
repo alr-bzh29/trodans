@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'models.dart';
+import 'tags.dart';
 import 'util.dart';
 
 class Reglages {
@@ -117,9 +118,9 @@ class Depot {
 
   String cheminAbsolu(String relatif) => '${reglages.racineMusique}/$relatif';
 
-  /// Parcourt la sonothèque. Conserve les durées déjà connues.
-  /// Renvoie le nombre de titres trouvés.
-  Future<int> scanner() async {
+  /// Parcourt la sonothèque et lit les tags de chaque fichier.
+  /// [progres] reçoit le nombre de fichiers traités. Renvoie le nombre de titres.
+  Future<int> scanner({void Function(int)? progres}) async {
     final racine = Directory(reglages.racineMusique);
     if (!await racine.exists()) {
       throw Exception('Dossier introuvable : ${reglages.racineMusique}');
@@ -144,9 +145,15 @@ class Depot {
           final bas = nom.toLowerCase();
           if (bas.endsWith('.mp3') || bas.endsWith('.ogg')) {
             final rel = e.path.substring(prefixe);
-            final t = Titre.depuisChemin(rel);
-            t.dureeMs = anciens[rel]?.dureeMs;
+            final tags = await lireTags(e);
+            final t = Titre.depuisChemin(rel,
+                tagTitre: tags.titre,
+                tagArtiste: tags.artiste,
+                album: tags.album,
+                genre: tags.genre,
+                dureeMs: tags.dureeMs ?? anciens[rel]?.dureeMs);
             trouves.add(t);
+            if (progres != null && trouves.length % 25 == 0) progres(trouves.length);
           }
         }
       }

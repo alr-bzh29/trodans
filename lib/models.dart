@@ -28,19 +28,31 @@ class Titre {
   final String chemin;
   final String titre;
   final String? artiste;
+  final String? album;
+  final String? genre;
 
-  /// Nom de la danse, déduit du dossier (« Gavotte/Titre - Artiste.mp3 »).
+  /// Nom de la danse : tag « genre », sinon dossier (« Gavotte/Titre - Artiste.mp3 »).
   final String? danse;
 
-  /// Durée en millisecondes, connue après la première lecture.
+  /// Durée en millisecondes (lue au scan, ou à la première lecture).
   int? dureeMs;
 
-  Titre({required this.chemin, required this.titre, this.artiste, this.danse, this.dureeMs});
+  Titre({
+    required this.chemin,
+    required this.titre,
+    this.artiste,
+    this.album,
+    this.genre,
+    this.danse,
+    this.dureeMs,
+  });
 
   factory Titre.fromJson(Map<String, dynamic> j) => Titre(
         chemin: j['chemin'] as String,
         titre: j['titre'] as String,
         artiste: j['artiste'] as String?,
+        album: j['album'] as String?,
+        genre: j['genre'] as String?,
         danse: j['danse'] as String?,
         dureeMs: j['dureeMs'] as int?,
       );
@@ -49,16 +61,21 @@ class Titre {
         'chemin': chemin,
         'titre': titre,
         if (artiste != null) 'artiste': artiste,
+        if (album != null) 'album': album,
+        if (genre != null) 'genre': genre,
         if (danse != null) 'danse': danse,
         if (dureeMs != null) 'dureeMs': dureeMs,
       };
 
-  /// Texte utilisé pour la recherche (sans accents, en minuscules).
-  late final String cleRecherche = plier('${danse ?? ''} $titre ${artiste ?? ''} $chemin');
+  /// Texte utilisé pour la recherche (sans accents, en minuscules) :
+  /// danse, titre, artiste, album, genre et chemin du fichier.
+  late final String cleRecherche = plier(
+      '${danse ?? ''} $titre ${artiste ?? ''} ${album ?? ''} ${genre ?? ''} $chemin');
 
-  /// Construit un Titre à partir de son chemin relatif.
+  /// Construit un Titre à partir de son chemin relatif et, si disponibles, de ses tags.
   /// Les dossiers commençant par « _ » (ex. _Ecoute, _A classer) ne sont pas des danses.
-  factory Titre.depuisChemin(String chemin) {
+  factory Titre.depuisChemin(String chemin,
+      {String? tagTitre, String? tagArtiste, String? album, String? genre, int? dureeMs}) {
     final parties = chemin.split('/');
     final fichier = parties.last;
     final point = fichier.lastIndexOf('.');
@@ -70,12 +87,20 @@ class Titre {
       titre = base.substring(0, sep).trim();
       artiste = base.substring(sep + 3).trim();
     }
-    String? danse;
+    String? dossier;
     if (parties.length >= 2) {
-      final dossier = parties[parties.length - 2];
-      if (!dossier.startsWith('_')) danse = dossier;
+      final d = parties[parties.length - 2];
+      if (!d.startsWith('_')) dossier = d;
     }
-    return Titre(chemin: chemin, titre: titre, artiste: artiste, danse: danse);
+    return Titre(
+      chemin: chemin,
+      titre: tagTitre ?? titre,
+      artiste: tagArtiste ?? artiste,
+      album: album,
+      genre: genre,
+      danse: genre ?? dossier,
+      dureeMs: dureeMs,
+    );
   }
 }
 

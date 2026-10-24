@@ -247,25 +247,37 @@ class Cours {
   String date;
   int numero;
   String theme;
-  int presents;
   String notes;
   List<Entree> entrees;
+
+  /// Identifiants des danseurs de la liste pointés présents.
+  List<String> pointes;
+
+  /// Présents hors liste (visiteurs, séance d'essai…), ou simple comptage.
+  int visiteurs;
 
   Cours({
     required this.date,
     this.numero = 1,
     this.theme = '',
-    this.presents = 0,
     this.notes = '',
     List<Entree>? entrees,
-  }) : entrees = entrees ?? [];
+    List<String>? pointes,
+    this.visiteurs = 0,
+  })  : entrees = entrees ?? [],
+        pointes = pointes ?? [];
+
+  /// Nombre total de présents.
+  int get presents => pointes.length + visiteurs;
 
   factory Cours.fromJson(Map<String, dynamic> j) => Cours(
         date: j['date'] as String,
         numero: (j['numero'] as int?) ?? 1,
         theme: (j['theme'] as String?) ?? '',
-        presents: (j['presents'] as int?) ?? 0,
         notes: (j['notes'] as String?) ?? '',
+        pointes: ((j['pointes'] as List?) ?? []).whereType<String>().toList(),
+        // Avant le pointage, seul le nombre de présents était noté.
+        visiteurs: (j['visiteurs'] as int?) ?? (j['pointes'] == null ? (j['presents'] as int?) ?? 0 : 0),
         entrees: ((j['entrees'] as List?) ?? [])
             .map((e) => Entree.fromJson(Map<String, dynamic>.from(e as Map)))
             .toList(),
@@ -278,6 +290,8 @@ class Cours {
         'numero': numero,
         'theme': theme,
         'presents': presents,
+        'pointes': pointes,
+        'visiteurs': visiteurs,
         'notes': notes,
         'entrees': entrees.map((e) => e.toJson()).toList(),
       };
@@ -311,6 +325,24 @@ class Cours {
     entrees.add(e);
     normaliser();
   }
+}
+
+/// Un danseur de la liste de pointage (prénom seulement).
+/// Un danseur n'est jamais supprimé : il est désactivé, pour garder l'historique.
+class Danseur {
+  final String id;
+  String prenom;
+  bool actif;
+
+  Danseur({required this.id, required this.prenom, this.actif = true});
+
+  factory Danseur.fromJson(Map<String, dynamic> j) => Danseur(
+        id: j['id'] as String,
+        prenom: (j['prenom'] as String?) ?? '?',
+        actif: (j['actif'] as bool?) ?? true,
+      );
+
+  Map<String, dynamic> toJson() => {'id': id, 'prenom': prenom, 'actif': actif};
 }
 
 /// Note personnelle sur une danse (fichier `danses/<nom>.json`).

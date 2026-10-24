@@ -8,6 +8,7 @@ import '../widgets.dart';
 import 'en_cours.dart';
 import 'fiche.dart';
 import 'lignes.dart';
+import 'pointage.dart';
 import 'recap.dart';
 
 /// Préparation d'un cours : date, numéro, thème, notes, puis les blocs
@@ -229,7 +230,16 @@ class _CoursEditionState extends State<CoursEdition> {
                 labelText: 'Thème', border: OutlineInputBorder(), isDense: true),
             onEditingComplete: _sauver,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.groups),
+            title: Text('${c.presents} présents'),
+            subtitle: const Text('Pointage des danseurs'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => pointer(context, c, _modifie),
+          ),
+          const SizedBox(height: 4),
           Card(
             margin: EdgeInsets.zero,
             child: InkWell(

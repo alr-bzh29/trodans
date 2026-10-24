@@ -232,6 +232,22 @@ class Depot {
 
   Future<bool> coursExiste(String date) => File('${_dossierCours.path}/$date.json').exists();
 
+  // ---------- Danseurs (liste de pointage) ----------
+
+  File get _fichierDanseurs => File('${reglages.dossierDonnees}/danseurs.json');
+
+  Future<List<Danseur>> lireDanseurs() async {
+    final j = await lireJson(_fichierDanseurs);
+    final l = ((j?['danseurs'] as List?) ?? [])
+        .map((e) => Danseur.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+    l.sort((a, b) => plier(a.prenom).compareTo(plier(b.prenom)));
+    return l;
+  }
+
+  Future<void> sauverDanseurs(List<Danseur> l) => ecrireJson(
+      _fichierDanseurs, {'version': 1, 'danseurs': l.map((d) => d.toJson()).toList()});
+
   // ---------- Danses ----------
 
   Future<Danse> lireDanse(String nom) async {

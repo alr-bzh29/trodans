@@ -10,6 +10,7 @@ import '../widgets.dart';
 import 'fiche.dart';
 import 'horloge.dart';
 import 'lignes.dart';
+import 'pointage.dart';
 
 /// Mode « en cours » : gros boutons, déroulé avec cases à cocher,
 /// compteur de présents. Les lignes se déplacent par glisser-déposer
@@ -136,10 +137,6 @@ class _EnCoursState extends State<EnCours> {
     );
   }
 
-  void _presents(int delta) {
-    setState(() => c.presents = (c.presents + delta).clamp(0, 999));
-    _sauver();
-  }
 
   Future<void> _terminer() async {
     await _sauver();
@@ -167,23 +164,16 @@ class _EnCoursState extends State<EnCours> {
                 onPressed: _ajouter,
                 icon: const Icon(Icons.playlist_add),
               ),
-              IconButton(
-                tooltip: 'Un danseur de moins',
-                onPressed: () => _presents(-1),
-                icon: const Icon(Icons.remove),
-              ),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('${c.presents}',
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  const Text('présents', style: TextStyle(fontSize: 11)),
-                ],
-              ),
-              IconButton(
-                tooltip: 'Un danseur de plus',
-                onPressed: () => _presents(1),
-                icon: const Icon(Icons.add),
+              TextButton(
+                onPressed: () => pointer(context, c, _modifie),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('${c.presents}',
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    const Text('présents', style: TextStyle(fontSize: 11)),
+                  ],
+                ),
               ),
               const SizedBox(width: 4),
             ],

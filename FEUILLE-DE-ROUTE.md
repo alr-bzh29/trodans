@@ -31,6 +31,10 @@
       N dernières conservées) ; suppression totale avec sauvegarde + double confirmation
 - [ ] Gestion des conflits Syncthing (`sync-conflict`)
 - [ ] APK séparés par architecture (plus légers, utile pour la Fire 7)
+- [ ] **Pointage des présents** à partir d'une liste de danseurs (nom, prénom, téléphone) :
+      import CSV fait par André dans l'appli (jamais dans le dépôt), mises à jour par
+      réimport ou dans l'appli, danseurs désactivés plutôt que supprimés ; visiteurs hors
+      liste comptés à part ; bilan : venues par personne, présents par cours
 
 ## Idées pour après la V2
 - [ ] **Import d'une playlist m3u comme cours** : chaque titre devient une ligne ;

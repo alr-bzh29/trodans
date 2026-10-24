@@ -24,6 +24,13 @@ class EnCours extends StatefulWidget {
   State<EnCours> createState() => _EnCoursState();
 }
 
+const _fondSurbrillance = Color(0xFFDCE8F7);
+final _themeSurbrillance = ThemeData(
+  colorSchemeSeed: const Color(0xFF1F4E8C),
+  brightness: Brightness.light,
+  useMaterial3: true,
+);
+
 class _EnCoursState extends State<EnCours> {
   late final Cours c = widget.cours;
   String? _courantId;
@@ -222,7 +229,6 @@ class _EnCoursState extends State<EnCours> {
 
   Widget _liste(Bloc b) {
     final lignes = c.bloc(b);
-    final cs = Theme.of(context).colorScheme;
     return SliverReorderableList(
       itemCount: lignes.length,
       // onReorderItem : « nouveau » est déjà corrigé pour l'élément retiré.
@@ -234,9 +240,12 @@ class _EnCoursState extends State<EnCours> {
         final x = lignes[i];
         final courant = x.id == _courante?.id;
         final masque = _masque(x);
-        return Card(
+        // Ligne en cours : fond clair et texte sombre (thème clair), pour rester lisible.
+        return Theme(
           key: ValueKey(x.id),
-          color: courant ? cs.secondaryContainer : null,
+          data: courant ? _themeSurbrillance : Theme.of(context),
+          child: Builder(builder: (context) => Card(
+          color: courant ? _fondSurbrillance : null,
           margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 12),
           child: InkWell(
             borderRadius: BorderRadius.circular(12),
@@ -314,6 +323,7 @@ class _EnCoursState extends State<EnCours> {
               ),
             ),
           ),
+        )),
         );
       },
     );
@@ -389,6 +399,12 @@ class _EnCoursState extends State<EnCours> {
                           ChoiceChip(
                             label: Text(e.titres[k].detail),
                             selected: k == e.choix,
+                            // Titre choisi : fond ambre, texte sombre.
+                            selectedColor: const Color(0xFFF2B66D),
+                            checkmarkColor: const Color(0xFF16202B),
+                            labelStyle: k == e.choix
+                                ? const TextStyle(color: Color(0xFF16202B), fontWeight: FontWeight.bold)
+                                : null,
                             onSelected: (_) => _choisirTitre(e, k),
                           ),
                       ],

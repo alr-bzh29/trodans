@@ -24,7 +24,14 @@
 - [ ] **Bilan / AG** : dates de la saison, nombre de cours, heures (début/fin), présence (dont venues par danseur), danses vues ;
       liste des danses (ordre alphabétique et/ou par type) ;
       **tableau avec une ligne par cours, incluant les notes du cours**
-- [ ] Calendrier de la saison (vacances zone B, relâches, code couleur)
+- [ ] **Calendrier en page d'accueil** : vue mensuelle, cases en couleur (cours, vacances
+      zone B, relâches, événements : musiciens, galette, fête…), un appui ouvre la fiche du cours
+- [ ] **Bloc « Réserve »** en fin de cours (préparation et mode en cours) : danses de secours
+      si le cours avance plus vite que prévu
+- [ ] **Recueil d'idées / danses à voir** : liste de danses avec notes (Markdown),
+      dans laquelle puiser pour préparer les cours (ajout direct dans un cours)
+- [ ] **Historique d'une danse** : à la sélection, nombre de fois jouée, dates et ancienneté
+      (« il y a 3 semaines »), dans la fiche et au moment de l'ajouter à un cours
 - [ ] Tags (#tag) communs à titres, danses, cours ; filtres inclure/exclure
 - [ ] Lecteur : tempo réglable, repères enregistrés, aperçu 15 s, fondu programmé
 - [ ] Fiches Danse complètes (famille, liens, « en savoir plus » hors ligne)
@@ -46,3 +53,6 @@
 ## Questions ouvertes
 - Nom de la danse : tag genre prioritaire sur le dossier — à confirmer selon les tags réels
 - Heures de cours : garder les heures propres à chaque cours si l'horaire change en saison ?
+- Réserve : une danse de réserve jouée passe-t-elle dans le corpus (et le récap) ?
+- Historique : compter les danses cochées « faites » seulement, ou aussi les prévues ?
+- Calendrier : événements saisis à la main, ou aussi importés (vacances via l'API Éducation nationale) ?

@@ -15,11 +15,13 @@
 - Danse saisie librement avec lien vidéo ouvert dans Brave
 - Récap dans l'ordre du cours ; heure actuelle + temps restant / dépassement ;
   heures de début et de fin réglables
+- Pointage des présents : liste de prénoms (Réglages), pointage à tout moment,
+  visiteurs hors liste, venues par danseur ; danseurs désactivés, jamais supprimés
 
 ## À faire — demandes d'André
 - [ ] **Photos du cours** : prises depuis la fiche du cours, rangées à côté du cours
       (`cours/photos/AAAA-MM-JJ-n.jpg`), réduites (~1–2 Mo), synchronisées
-- [ ] **Bilan / AG** : dates de la saison, nombre de cours, heures (début/fin), présence, danses vues ;
+- [ ] **Bilan / AG** : dates de la saison, nombre de cours, heures (début/fin), présence (dont venues par danseur), danses vues ;
       liste des danses (ordre alphabétique et/ou par type) ;
       **tableau avec une ligne par cours, incluant les notes du cours**
 - [ ] Calendrier de la saison (vacances zone B, relâches, code couleur)
@@ -31,10 +33,6 @@
       N dernières conservées) ; suppression totale avec sauvegarde + double confirmation
 - [ ] Gestion des conflits Syncthing (`sync-conflict`)
 - [ ] APK séparés par architecture (plus légers, utile pour la Fire 7)
-- [ ] **Pointage des présents** à partir d'une liste de danseurs (nom, prénom, téléphone) :
-      import CSV fait par André dans l'appli (jamais dans le dépôt), mises à jour par
-      réimport ou dans l'appli, danseurs désactivés plutôt que supprimés ; visiteurs hors
-      liste comptés à part ; bilan : venues par personne, présents par cours
 
 ## Idées pour après la V2
 - [ ] **Import d'une playlist m3u comme cours** : chaque titre devient une ligne ;
